@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"strings"
 	"time"
 
 	"github.com/buger/jsonparser"
@@ -30,7 +31,7 @@ func (a *AccessLogConverter) Convert(msg []byte, _ string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get datetime field")
 	}
-	t, err := time.Parse(time.RFC3339, val) // TODO use ParseInLocation?
+	t, err := a.parseDateTime(val)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to parse datetime field")
 	}
@@ -46,6 +47,25 @@ func (a *AccessLogConverter) Convert(msg []byte, _ string) ([]byte, error) {
 	}
 
 	return a.transform(msg)
+}
+
+func (a *AccessLogConverter) parseDateTime(value string) (time.Time, error) {
+	dateTimeFormats := []string{
+		time.RFC3339,
+		"2006-01-02T15:04:05.999999999",
+		"2006-01-02T15:04:05.999999",
+	}
+	errorMessages := make([]string, len(dateTimeFormats))
+
+	for _, dtFormat := range dateTimeFormats {
+		if result, err := time.Parse(dtFormat, value); err != nil {
+			errorMessages = append(errorMessages, err.Error())
+		} else {
+			return result, nil
+		}
+	}
+
+	return time.Time{}, errors.New(strings.Join(errorMessages, "\n"))
 }
 
 func (a *AccessLogConverter) transform(msg []byte) ([]byte, error) {
